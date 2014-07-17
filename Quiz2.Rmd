@@ -1,0 +1,142 @@
+Question 1
+```
+Load the Alzheimer's disease data using the commands:
+```
+```{r}
+library(AppliedPredictiveModeling)
+library(caret)
+data(AlzheimerDisease)
+```
+```
+Which of the following commands will create training and test sets with about 50% of the observations assigned to each?
+```
+```{r}
+adData = data.frame(diagnosis,predictors)
+testIndex = createDataPartition(diagnosis, p = 0.50,list=FALSE)
+training = adData[-testIndex,]
+testing = adData[testIndex,]
+```
+
+
+Question 2
+```
+Load the cement data using the commands:
+```
+```{r}
+library(AppliedPredictiveModeling)
+data(concrete)
+library(caret)
+set.seed(975)
+inTrain = createDataPartition(mixtures$CompressiveStrength, p = 3/4)[[1]]
+training = mixtures[ inTrain,]
+testing = mixtures[-inTrain,]
+```
+```
+Make a plot of the outcome (CompressiveStrength) versus the index of the samples. Color by each of the variables in the data set (you may find the cut2() function in the Hmisc package useful for turning continuous covariates into factors). What do you notice in these plots?
+```
+```{r}
+library(gridExtra)
+library(Hmisc)
+names(training)
+summary(training)
+age <- cut2(training$Age,g=10)
+flyash <- cut2(training$FlyAsh,g=10)
+byAge <- qplot(seq(1,nrow(training)),CompressiveStrength,data=training,col=age)
+byFlyAsh <- qplot(seq(1,nrow(training)),CompressiveStrength,data=training,col=flyash)
+grid.arrange(byAge,byFlyAsh)
+```
+There is a step-like pattern in the plot of outcome versus index in the training set that isn't explained by any of the predictor variables so there may be a variable missing.
+
+
+Question 3
+```r
+Load the cement data using the commands:
+```
+```{r}
+library(AppliedPredictiveModeling)
+data(concrete)
+library(caret)
+set.seed(975)
+inTrain = createDataPartition(mixtures$CompressiveStrength, p = 3/4)[[1]]
+training = mixtures[ inTrain,]
+testing = mixtures[-inTrain,]
+```
+```r
+Make a histogram and confirm the SuperPlasticizer variable is skewed. Normally you might use the log transform to try to make the data more symmetric. Why would that be a poor choice for this variable?
+```
+```{r}
+range(training$Superplasticizer)
+table(training$Superplasticizer==0)
+qplot(Superplasticizer,data=training)
+qplot(log(Superplasticizer+1),data=training)
+```
+```
+There are a large number of values that are the same and even if you took the log(SuperPlasticizer + 1) they would still all be identical so the distribution would not be symmetric.
+```
+
+
+Question 4
+```
+Load the Alzheimer's disease data using the commands:
+```
+```{r}
+set.seed(3433)
+library(AppliedPredictiveModeling)
+data(AlzheimerDisease)
+adData = data.frame(diagnosis,predictors)
+inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
+training = adData[ inTrain,]
+testing = adData[-inTrain,]
+```
+```
+Find all the predictor variables in the training set that begin with IL. Perform principal components on these variables with the preProcess() function from the caret package. Calculate the number of principal components needed to capture 90% of the variance. How many are there?
+```
+```{r}
+library(ggplot2)
+library(caret)
+ncol(training)
+which(sapply(adData,class)=="factor")
+summary(training$diagnosis)
+training$diagnosis = as.numeric(training$diagnosis)
+p <- prcomp(training[,grep('^IL',names(training))])
+p$rotation[,1:7]
+qplot(1:length(p$sdev),p$sdev / sum(p$sdev))
+which(cumsum(p$sdev) / sum(p$sdev) <= .9)
+(cumsum(p$sdev) / sum(p$sdev))[8]
+#Result here
+preProc <- preProcess(training[,grep('^IL',names(training))],method="pca",thres=.9)
+```
+
+
+Question 5
+```r
+Load the Alzheimer's disease data using the commands:
+```
+```{r}
+set.seed(3433)
+library(AppliedPredictiveModeling)
+data(AlzheimerDisease)
+adData = data.frame(diagnosis,predictors)
+inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
+training = adData[ inTrain,]
+testing = adData[-inTrain,]
+```
+```r
+Create a training data set consisting of only the predictors with variable names beginning with IL and the diagnosis. Build two predictive models, one using the predictors as they are and one using PCA with principal components explaining 80% of the variance in the predictors. Use method="glm" in the train function. What is the accuracy of each method in the test set? Which is more accurate? 
+```
+```{r}
+trainSmall <- data.frame(training[,grep('^IL',names(training))],training$diagnosis)
+testSmall <- data.frame(testing[,grep('^IL',names(testing))],testing$diagnosis)
+preProc <- preProcess(trainSmall[-13],method="pca",thres=.8)
+trainPC <- predict(preProc,trainSmall[-13])
+testPC <- predict(preProc,testSmall[-13])
+
+PCFit <- train(trainSmall$training.diagnosis~.,data=trainPC,method="glm")
+NotPCFit <- train(trainSmall$training.diagnosis~.,data=trainSmall,method="glm")
+
+PCTestPredict <- predict(PCFit,newdata=testPC)
+NotPCTestPredict <- predict(NotPCFit,newdata=testSmall)
+
+confusionMatrix(PCTestPredict,testSmall$testing.diagnosis)
+confusionMatrix(NotPCTestPredict,testSmall$testing.diagnosis)
+```
